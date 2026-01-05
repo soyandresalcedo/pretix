@@ -69,7 +69,8 @@ RUN chmod +x /usr/local/bin/pretix && \
     sudo -u pretixuser make production
 
 USER pretixuser
-VOLUME ["/etc/pretix", "/data"]
+# Railway doesn't support VOLUME - use Railway volumes instead
+# Mount points: /etc/pretix and /data
 EXPOSE 80
 ENTRYPOINT ["pretix"]
 CMD ["all"]
