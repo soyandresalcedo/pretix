@@ -6,7 +6,7 @@ datadir=data
 registration=false
 
 [locale]
-default=en
+default=es-419
 timezone=America/Bogota
 
 [database]
