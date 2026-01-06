@@ -68,9 +68,10 @@ PRETIX_MAIL_USER=apikey
 PRETIX_MAIL_PASSWORD=<your-sendgrid-api-key>
 PRETIX_MAIL_TLS=True
 
-# Celery
-CELERY_BROKER_URL=${{Redis.REDIS_URL}}/1
-CELERY_RESULT_BACKEND=${{Redis.REDIS_URL}}/2
+# Celery Configuration (CRITICAL - prevents AMQP errors!)
+# Pretix reads these via EnvOrParserConfig with PRETIX_ prefix
+PRETIX_CELERY_BROKER=${{Redis.REDIS_URL}}/1
+PRETIX_CELERY_BACKEND=${{Redis.REDIS_URL}}/2
 
 # Performance Tuning (Important for Railway!)
 # NUM_WORKERS controls Gunicorn worker processes
@@ -154,13 +155,29 @@ Make sure to mount Railway volumes at these paths.
 
 Add this to your Railway environment variables and redeploy.
 
+### Celery AMQP Connection Error
+
+**Symptom**: `consumer: Cannot connect to amqp://guest:**@127.0.0.1:5672//: [Errno 111] Connection refused`
+
+**Cause**: Celery is trying to connect to RabbitMQ (AMQP) instead of Redis because the broker configuration is missing.
+
+**Solution**: **CRITICAL** - Add these environment variables in Railway:
+```env
+PRETIX_CELERY_BROKER=${{Redis.REDIS_URL}}/1
+PRETIX_CELERY_BACKEND=${{Redis.REDIS_URL}}/2
+```
+
+Without these, pretix will either:
+1. Try to use RabbitMQ (AMQP) by default → Connection refused errors
+2. Fall back to `CELERY_TASK_ALWAYS_EAGER=True` → No background tasks (bad for performance)
+
 ### Celery Hostname Warning
 
 **Symptom**: `No hostname was supplied. Reverting to default 'localhost'`
 
 **Status**: This is just a warning and won't affect functionality. Celery workers will use 'localhost' as hostname.
 
-**Optional Fix**: Add `CELERY_WORKER_HOSTNAME` environment variable if you want custom hostname.
+**Optional Fix**: Add `PRETIX_CELERY_WORKER_HOSTNAME` environment variable if you want custom hostname.
 
 ### Build fails
 - Check that all services (PostgreSQL, Redis) are running
