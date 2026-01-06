@@ -73,7 +73,14 @@ CELERY_BROKER_URL=${{Redis.REDIS_URL}}/1
 CELERY_RESULT_BACKEND=${{Redis.REDIS_URL}}/2
 
 # Performance Tuning (Important for Railway!)
+# NUM_WORKERS controls Gunicorn worker processes
+# Default: 2 × CPU cores (can be 8-16 workers on Railway!)
+# Recommended by pretix: 2-4 × number of CPU cores
+# Railway limitation: Memory is limited, so we need fewer workers
 NUM_WORKERS=2
+
+# Alternative: Use MAX_WORKERS (introduced in pretix 3.14.0)
+# MAX_WORKERS=2
 ```
 
 ### 5. Generate Secret Key
@@ -133,14 +140,27 @@ Make sure to mount Railway volumes at these paths.
 
 **Symptom**: Logs show `[ERROR] Worker (pid:XXXX) was sent SIGKILL! Perhaps out of memory?`
 
-**Cause**: By default, pretix spawns `2 * CPU_CORES` Gunicorn workers. On Railway, this can be 8-16 workers, which exceeds memory limits (512MB-1GB on starter plans).
+**Cause**: By default, pretix spawns `2 * CPU_CORES` Gunicorn workers. On Railway with 8 vCPUs, this means 16 workers, which can exceed memory during startup.
 
-**Solution**: Set the `NUM_WORKERS` environment variable to limit workers:
-- For 512MB plan: `NUM_WORKERS=2`
-- For 1GB plan: `NUM_WORKERS=3`
-- For 2GB+ plan: `NUM_WORKERS=4`
+**Solution**: Set the `NUM_WORKERS` environment variable to limit workers based on your Railway plan:
+
+**Railway Usage-Based Plans**:
+- **Up to 8GB RAM / 8 vCPU**: `NUM_WORKERS=4` to `NUM_WORKERS=8` (recommended: start with 4)
+- **Up to 4GB RAM / 4 vCPU**: `NUM_WORKERS=2` to `NUM_WORKERS=4`
+- **Up to 2GB RAM / 2 vCPU**: `NUM_WORKERS=2` to `NUM_WORKERS=3`
+- **Up to 1GB RAM / 1 vCPU**: `NUM_WORKERS=2`
+
+**Pretix Recommendation**: 2-4 × number of CPU cores available
 
 Add this to your Railway environment variables and redeploy.
+
+### Celery Hostname Warning
+
+**Symptom**: `No hostname was supplied. Reverting to default 'localhost'`
+
+**Status**: This is just a warning and won't affect functionality. Celery workers will use 'localhost' as hostname.
+
+**Optional Fix**: Add `CELERY_WORKER_HOSTNAME` environment variable if you want custom hostname.
 
 ### Build fails
 - Check that all services (PostgreSQL, Redis) are running
@@ -154,6 +174,35 @@ Add this to your Railway environment variables and redeploy.
 ### Static files not loading
 - Rebuild the app to regenerate static files
 - Check nginx configuration in `/etc/nginx/nginx.conf`
+
+## Performance Optimization
+
+### Recommended Settings for 8GB RAM / 8 vCPU Plan
+
+Based on pretix documentation (2-4 × CPU cores) and your Railway plan:
+
+```env
+# Start conservative, then increase
+NUM_WORKERS=4   # Good balance for 8 vCPU
+
+# If stable and need more performance:
+# NUM_WORKERS=6  # Higher performance
+# NUM_WORKERS=8  # Maximum for 8 vCPU (monitor memory usage)
+```
+
+### Memory Usage Reference
+
+According to pretix discussions:
+- RAM usage per worker is **mostly constant** even under high load
+- General purpose instances: 2-4 GB RAM per CPU core is typical
+- Your 8GB/8vCPU = 1GB per core (tight but workable with tuning)
+
+### Monitoring
+
+Watch your Railway metrics dashboard:
+- If memory usage < 70%: Can increase `NUM_WORKERS`
+- If memory usage > 85%: Reduce `NUM_WORKERS`
+- CPU usage should be < 80% under normal load
 
 ## Useful Commands
 
@@ -169,6 +218,9 @@ railway run python -m pretix shell
 
 # Rebuild static files
 railway run python -m pretix rebuild
+
+# Check worker status (from logs)
+railway logs --filter "Booting worker"
 ```
 
 ## Support
