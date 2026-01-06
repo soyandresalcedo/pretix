@@ -70,8 +70,15 @@ PRETIX_MAIL_TLS=True
 
 # Celery Configuration (CRITICAL - prevents AMQP errors!)
 # Pretix reads these via EnvOrParserConfig with PRETIX_ prefix
+# Option 1: Using Railway's Redis service reference (recommended)
 PRETIX_CELERY_BROKER=${{Redis.REDIS_URL}}/1
 PRETIX_CELERY_BACKEND=${{Redis.REDIS_URL}}/2
+
+# Option 2: If Option 1 doesn't work, use explicit connection string
+# Get the Redis URL from Railway and manually append /1 and /2
+# Example: redis://default:password@redis.railway.internal:6379/1
+# PRETIX_CELERY_BROKER=redis://default:PASSWORD@redis.railway.internal:6379/1
+# PRETIX_CELERY_BACKEND=redis://default:PASSWORD@redis.railway.internal:6379/2
 
 # Performance Tuning (Important for Railway!)
 # NUM_WORKERS controls Gunicorn worker processes
