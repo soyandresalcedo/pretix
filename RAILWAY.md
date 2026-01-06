@@ -71,6 +71,9 @@ PRETIX_MAIL_TLS=True
 # Celery
 CELERY_BROKER_URL=${{Redis.REDIS_URL}}/1
 CELERY_RESULT_BACKEND=${{Redis.REDIS_URL}}/2
+
+# Performance Tuning (Important for Railway!)
+NUM_WORKERS=2
 ```
 
 ### 5. Generate Secret Key
@@ -125,6 +128,19 @@ Make sure to mount Railway volumes at these paths.
 ⚠️ **Static Files**: Built during Docker build process
 
 ## Troubleshooting
+
+### Out of Memory Errors (Workers being killed with SIGKILL)
+
+**Symptom**: Logs show `[ERROR] Worker (pid:XXXX) was sent SIGKILL! Perhaps out of memory?`
+
+**Cause**: By default, pretix spawns `2 * CPU_CORES` Gunicorn workers. On Railway, this can be 8-16 workers, which exceeds memory limits (512MB-1GB on starter plans).
+
+**Solution**: Set the `NUM_WORKERS` environment variable to limit workers:
+- For 512MB plan: `NUM_WORKERS=2`
+- For 1GB plan: `NUM_WORKERS=3`
+- For 2GB+ plan: `NUM_WORKERS=4`
+
+Add this to your Railway environment variables and redeploy.
 
 ### Build fails
 - Check that all services (PostgreSQL, Redis) are running
